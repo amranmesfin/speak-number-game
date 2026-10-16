@@ -1,4 +1,11 @@
 const msgEl = document.getElementById('msg');
+const guessesEl = document.getElementById('guesses');
+
+// Custom: track guesses, the possible range, and whether the game is over
+let guessCount = 0;
+let low = 1;
+let high = 100;
+let gameOver = false;
 
 // Generate random number
 function getRandomNumber() {
@@ -30,6 +37,9 @@ function writeMessage(msg) {
 
 // Check msg against the secret number
 function checkNumber(msg) {
+  // Custom: ignore capital letters and extra spaces
+  msg = msg.toLowerCase().trim();
+
   const wordToNumber = {
     one: 1,
     won: 1,
@@ -37,6 +47,7 @@ function checkNumber(msg) {
     to: 2,
     too: 2,
     three: 3,
+    tree: 3,
     four: 4,
     for: 4,
     five: 5,
@@ -59,6 +70,7 @@ function checkNumber(msg) {
   if (Number.isNaN(num)) {
     const div = document.createElement('div');
     div.textContent = 'That is not a valid number';
+    div.classList.add('invalid');
     msgEl.append(div);
     return;
   }
@@ -67,14 +79,25 @@ function checkNumber(msg) {
   if (num < 1 || num > 100) {
     const div = document.createElement('div');
     div.textContent = 'Number must be between 1 and 100';
+    div.classList.add('invalid');
     msgEl.append(div);
     return;
   }
 
+  // Custom: count this guess
+  guessCount++;
+  guessesEl.textContent = `Guesses: ${guessCount}`;
+
   // Check the number and provide feedback
   if (num === randomNum) {
+    // Custom: stop listening once the game is won
+    gameOver = true;
+    recognition.stop();
+
     const h2 = document.createElement('h2');
-    h2.textContent = `Congrats! You have guessed the number! It was ${num}`;
+    const word = guessCount === 1 ? 'guess' : 'guesses';
+    h2.textContent = `Congrats! You guessed ${num} in ${guessCount} ${word}!`;
+    h2.classList.add('correct');
 
     const button = document.createElement('button');
     button.classList.add('play-again');
@@ -84,18 +107,24 @@ function checkNumber(msg) {
 
     msgEl.append(h2, button);
   } else if (num > randomNum) {
+    // Custom: narrow the range so we can show a hint
+    high = Math.min(high, num - 1);
     const div = document.createElement('div');
-    div.textContent = 'GO LOWER';
+    div.textContent = `GO LOWER (try between ${low} and ${high})`;
+    div.classList.add('lower');
     msgEl.append(div);
   } else {
+    low = Math.max(low, num + 1);
     const div = document.createElement('div');
-    div.textContent = 'GO HIGHER';
+    div.textContent = `GO HIGHER (try between ${low} and ${high})`;
+    div.classList.add('higher');
     msgEl.append(div);
   }
 }
 
 // Capture user speak
 function onSpeak(event) {
+  if (gameOver) return;
   const msg = event.results[0][0].transcript;
   console.log(msg);
   writeMessage(msg);
@@ -105,5 +134,7 @@ function onSpeak(event) {
 // Speak result
 recognition.addEventListener('result', onSpeak);
 
-// Keep listening after each guess
-recognition.addEventListener('end', () => recognition.start());
+// Keep listening after each guess, until the game is won
+recognition.addEventListener('end', () => {
+  if (!gameOver) recognition.start();
+});
